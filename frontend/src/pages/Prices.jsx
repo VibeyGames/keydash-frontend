@@ -2,17 +2,16 @@ import { useState, useEffect } from 'react';
 import { getOffers, updatePrice } from '../services/api.js';
 import { Save, RefreshCw, Check } from 'lucide-react';
 
-function getCommissionRate(offer) {
-  const price = offer.price?.amount;
-  const iwtr = offer.priceIWTR?.amount;
-  if (!price || !iwtr || price === 0) return null;
-  return iwtr / price;
+function getLiveIWTR(buyerPrice) {
+  if (!buyerPrice || isNaN(buyerPrice)) return null;
+  const p = parseFloat(buyerPrice);
+  const iwtr = (p - 0.15) / 1.05;
+  return iwtr.toFixed(2);
 }
 
 export default function Prices() {
   const [offers, setOffers] = useState([]);
   const [prices, setPrices] = useState({});
-  const [rates, setRates] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
@@ -26,25 +25,15 @@ export default function Prices() {
       const data = Array.isArray(res.data) ? res.data : [];
       setOffers(data);
       const initial = {};
-      const ratesMap = {};
       data.forEach(o => {
         initial[o.id] = o.price?.amount ? (o.price.amount / 100).toFixed(2) : '';
-        const rate = getCommissionRate(o);
-        if (rate) ratesMap[o.id] = rate;
       });
       setPrices(initial);
-      setRates(ratesMap);
     } catch {
       setError('Failed to load listings');
     } finally {
       setLoading(false);
     }
-  }
-
-  function getLiveIWTR(offerId, buyerPrice) {
-    const rate = rates[offerId];
-    if (!rate || !buyerPrice || isNaN(buyerPrice)) return null;
-    return (parseFloat(buyerPrice) * rate).toFixed(2);
   }
 
   async function handleSave(offerId) {
@@ -97,7 +86,7 @@ export default function Prices() {
             </thead>
             <tbody>
               {offers.map(offer => {
-                const liveIWTR = getLiveIWTR(offer.id, prices[offer.id]);
+                const liveIWTR = getLiveIWTR(prices[offer.id]);
                 const currentPrice = offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : null;
                 const newPrice = parseFloat(prices[offer.id]);
                 const priceChanged = currentPrice && newPrice && newPrice !== parseFloat(currentPrice);
@@ -105,9 +94,7 @@ export default function Prices() {
                 return (
                   <tr key={offer.id}>
                     <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
-                    <td style={{ color: 'var(--text2)' }}>
-                      €{currentPrice || '—'}
-                    </td>
+                    <td style={{ color: 'var(--text2)' }}>€{currentPrice || '—'}</td>
                     <td>
                       <input
                         type="number" step="0.01" min="0.01"
@@ -156,7 +143,7 @@ export default function Prices() {
       </div>
 
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * Kinguin allows 3 free price changes per offer per day. IWTR preview uses your product's actual commission rate.
+        * Kinguin allows 3 free price changes per offer per day. IWTR = (buyer price − €0.15) ÷ 1.05
       </div>
     </div>
   );
