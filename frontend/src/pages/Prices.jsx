@@ -1,21 +1,17 @@
-import { useState, useEffect } from 'react';
-import { getOffers, updatePrice } from '../services/api.js';
-import { Save, RefreshCw, Check } from 'lucide-react';
-
-function getLiveIWTR(buyerPrice) {
-  if (!buyerPrice || isNaN(buyerPrice)) return null;
-  const p = parseFloat(buyerPrice);
-  const iwtr = (p - 0.15) / 1.05;
-  return iwtr.toFixed(2);
-}
+import { useState, useEffect, useRef } from 'react';
+import { getOffers, updatePrice, calculatePrice } from '../services/api.js';
+import { Save, RefreshCw, Check, Loader } from 'lucide-react';
 
 export default function Prices() {
   const [offers, setOffers] = useState([]);
   const [prices, setPrices] = useState({});
+  const [iwtr, setIwtr] = useState({});
   const [loading, setLoading] = useState(true);
+  const [calculating, setCalculating] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
   const [error, setError] = useState('');
+  const timers = useRef({});
 
   useEffect(() => { load(); }, []);
 
@@ -25,15 +21,43 @@ export default function Prices() {
       const data = Array.isArray(res.data) ? res.data : [];
       setOffers(data);
       const initial = {};
+      const iwtrInit = {};
       data.forEach(o => {
         initial[o.id] = o.price?.amount ? (o.price.amount / 100).toFixed(2) : '';
+        iwtrInit[o.id] = o.priceIWTR?.amount ? (o.priceIWTR.amount / 100).toFixed(2) : null;
       });
       setPrices(initial);
+      setIwtr(iwtrInit);
     } catch {
       setError('Failed to load listings');
     } finally {
       setLoading(false);
     }
+  }
+
+  function handlePriceChange(offer, value) {
+    setPrices(p => ({ ...p, [offer.id]: value }));
+
+    if (timers.current[offer.id]) clearTimeout(timers.current[offer.id]);
+
+    if (!value || isNaN(value) || parseFloat(value) <= 0) {
+      setIwtr(i => ({ ...i, [offer.id]: null }));
+      return;
+    }
+
+    setCalculating(c => ({ ...c, [offer.id]: true }));
+
+    timers.current[offer.id] = setTimeout(async () => {
+      try {
+        const res = await calculatePrice(offer.id, offer.productId, parseFloat(value));
+        const iwtrAmount = res.data?.priceIWTR?.amount;
+        setIwtr(i => ({ ...i, [offer.id]: iwtrAmount ? (iwtrAmount / 100).toFixed(2) : null }));
+      } catch {
+        setIwtr(i => ({ ...i, [offer.id]: null }));
+      } finally {
+        setCalculating(c => ({ ...c, [offer.id]: false }));
+      }
+    }, 600);
   }
 
   async function handleSave(offerId) {
@@ -59,7 +83,7 @@ export default function Prices() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Type a price to preview your IWTR — click Update only when ready
+          Type a buyer price → real IWTR from Kinguin appears instantly → click Update when ready
         </p>
       </div>
 
@@ -86,7 +110,6 @@ export default function Prices() {
             </thead>
             <tbody>
               {offers.map(offer => {
-                const liveIWTR = getLiveIWTR(prices[offer.id]);
                 const currentPrice = offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : null;
                 const newPrice = parseFloat(prices[offer.id]);
                 const priceChanged = currentPrice && newPrice && newPrice !== parseFloat(currentPrice);
@@ -99,7 +122,7 @@ export default function Prices() {
                       <input
                         type="number" step="0.01" min="0.01"
                         value={prices[offer.id] || ''}
-                        onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
+                        onChange={e => handlePriceChange(offer, e.target.value)}
                         style={{
                           width: 100,
                           borderColor: priceChanged ? 'var(--warning)' : undefined
@@ -107,13 +130,17 @@ export default function Prices() {
                       />
                     </td>
                     <td>
-                      <span style={{
-                        color: liveIWTR ? 'var(--success)' : 'var(--text3)',
-                        fontWeight: liveIWTR ? 600 : 400,
-                        fontSize: 15
-                      }}>
-                        {liveIWTR ? `€${liveIWTR}` : '—'}
-                      </span>
+                      {calculating[offer.id] ? (
+                        <Loader size={14} style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />
+                      ) : (
+                        <span style={{
+                          color: iwtr[offer.id] ? 'var(--success)' : 'var(--text3)',
+                          fontWeight: iwtr[offer.id] ? 600 : 400,
+                          fontSize: 15
+                        }}>
+                          {iwtr[offer.id] ? `€${iwtr[offer.id]}` : '—'}
+                        </span>
+                      )}
                     </td>
                     <td style={{
                       color: offer.availableStock === 0 ? 'var(--danger)' :
@@ -142,8 +169,10 @@ export default function Prices() {
         )}
       </div>
 
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * Kinguin allows 3 free price changes per offer per day. IWTR = (buyer price − €0.15) ÷ 1.05
+        * IWTR fetched directly from Kinguin's API — 100% accurate per product commission
       </div>
     </div>
   );
