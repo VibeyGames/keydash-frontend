@@ -49,8 +49,9 @@ export default function Prices() {
 
     timers.current[offer.id] = setTimeout(async () => {
       try {
-        const res = await calculatePrice(offer.id, offer.productId, parseFloat(value));
-        const iwtrAmount = res.data?.priceIWTR?.amount;
+        const productId = offer.kpcProductId || offer.productId;
+        const res = await calculatePrice(offer.id, productId, parseFloat(value));
+        const iwtrAmount = res.data?.priceIWTR;
         setIwtr(i => ({ ...i, [offer.id]: iwtrAmount ? (iwtrAmount / 100).toFixed(2) : null }));
       } catch {
         setIwtr(i => ({ ...i, [offer.id]: null }));
@@ -80,10 +81,12 @@ export default function Prices() {
 
   return (
     <div style={{ padding: 28 }}>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Type a buyer price → real IWTR from Kinguin appears instantly → click Update when ready
+          Type a buyer price → real IWTR from Kinguin appears → click Update when ready
         </p>
       </div>
 
@@ -169,10 +172,8 @@ export default function Prices() {
         )}
       </div>
 
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * IWTR fetched directly from Kinguin's API — 100% accurate per product commission
+        * IWTR fetched directly from Kinguin — 100% accurate per product commission
       </div>
     </div>
   );
