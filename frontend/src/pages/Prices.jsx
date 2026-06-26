@@ -1,10 +1,18 @@
 import { useState, useEffect } from 'react';
 import { getOffers, updatePrice } from '../services/api.js';
-import { Save, RefreshCw } from 'lucide-react';
+import { Save, RefreshCw, Check } from 'lucide-react';
+
+function getCommissionRate(offer) {
+  const price = offer.price?.amount;
+  const iwtr = offer.priceIWTR?.amount;
+  if (!price || !iwtr || price === 0) return null;
+  return iwtr / price;
+}
 
 export default function Prices() {
   const [offers, setOffers] = useState([]);
   const [prices, setPrices] = useState({});
+  const [rates, setRates] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
@@ -18,15 +26,25 @@ export default function Prices() {
       const data = Array.isArray(res.data) ? res.data : [];
       setOffers(data);
       const initial = {};
+      const ratesMap = {};
       data.forEach(o => {
         initial[o.id] = o.price?.amount ? (o.price.amount / 100).toFixed(2) : '';
+        const rate = getCommissionRate(o);
+        if (rate) ratesMap[o.id] = rate;
       });
       setPrices(initial);
+      setRates(ratesMap);
     } catch {
       setError('Failed to load listings');
     } finally {
       setLoading(false);
     }
+  }
+
+  function getLiveIWTR(offerId, buyerPrice) {
+    const rate = rates[offerId];
+    if (!rate || !buyerPrice || isNaN(buyerPrice)) return null;
+    return (parseFloat(buyerPrice) * rate).toFixed(2);
   }
 
   async function handleSave(offerId) {
@@ -36,10 +54,8 @@ export default function Prices() {
     try {
       await updatePrice(offerId, price);
       setSaved(s => ({ ...s, [offerId]: true }));
-      setTimeout(() => {
-        setSaved(s => ({ ...s, [offerId]: false }));
-        load();
-      }, 1500);
+      setTimeout(() => setSaved(s => ({ ...s, [offerId]: false })), 2000);
+      await load();
     } catch {
       alert('Failed to update price.');
     } finally {
@@ -54,7 +70,7 @@ export default function Prices() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Set the buyer price → click Update → Kinguin applies it instantly
+          Type a price to preview your IWTR — click Update only when ready
         </p>
       </div>
 
@@ -72,58 +88,75 @@ export default function Prices() {
             <thead>
               <tr>
                 <th>Product</th>
-                <th>Current buyer price</th>
-                <th>Current IWTR</th>
+                <th>Current price</th>
                 <th>New buyer price (€)</th>
+                <th>You'll receive (IWTR)</th>
                 <th>Stock</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {offers.map(offer => (
-                <tr key={offer.id}>
-                  <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
-                  <td style={{ color: 'var(--text2)' }}>
-                    €{offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : '—'}
-                  </td>
-                  <td style={{ color: 'var(--success)', fontWeight: 500 }}>
-                    €{offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : '—'}
-                  </td>
-                  <td>
-                    <input
-                      type="number" step="0.01" min="0.01"
-                      value={prices[offer.id] || ''}
-                      onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
-                      style={{ width: 100 }}
-                      placeholder="New price"
-                    />
-                  </td>
-                  <td style={{
-                    color: offer.availableStock === 0 ? 'var(--danger)' :
-                      offer.availableStock <= 5 ? 'var(--warning)' : 'var(--text2)'
-                  }}>
-                    {offer.availableStock ?? '—'} keys
-                  </td>
-                  <td>
-                    <button
-                      className={`btn ${saved[offer.id] ? 'btn-secondary' : 'btn-primary'}`}
-                      style={{ padding: '6px 12px', fontSize: 12 }}
-                      onClick={() => handleSave(offer.id)}
-                      disabled={saving[offer.id]}
-                    >
-                      {saving[offer.id] ? <RefreshCw size={12} /> : <Save size={12} />}
-                      {saved[offer.id] ? 'Updated!' : saving[offer.id] ? 'Saving...' : 'Update'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {offers.map(offer => {
+                const liveIWTR = getLiveIWTR(offer.id, prices[offer.id]);
+                const currentPrice = offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : null;
+                const newPrice = parseFloat(prices[offer.id]);
+                const priceChanged = currentPrice && newPrice && newPrice !== parseFloat(currentPrice);
+
+                return (
+                  <tr key={offer.id}>
+                    <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
+                    <td style={{ color: 'var(--text2)' }}>
+                      €{currentPrice || '—'}
+                    </td>
+                    <td>
+                      <input
+                        type="number" step="0.01" min="0.01"
+                        value={prices[offer.id] || ''}
+                        onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
+                        style={{
+                          width: 100,
+                          borderColor: priceChanged ? 'var(--warning)' : undefined
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <span style={{
+                        color: liveIWTR ? 'var(--success)' : 'var(--text3)',
+                        fontWeight: liveIWTR ? 600 : 400,
+                        fontSize: 15
+                      }}>
+                        {liveIWTR ? `€${liveIWTR}` : '—'}
+                      </span>
+                    </td>
+                    <td style={{
+                      color: offer.availableStock === 0 ? 'var(--danger)' :
+                        offer.availableStock <= 5 ? 'var(--warning)' : 'var(--text2)'
+                    }}>
+                      {offer.availableStock ?? '—'} keys
+                    </td>
+                    <td>
+                      <button
+                        className={`btn ${saved[offer.id] ? 'btn-secondary' : priceChanged ? 'btn-primary' : 'btn-secondary'}`}
+                        style={{ padding: '6px 12px', fontSize: 12 }}
+                        onClick={() => handleSave(offer.id)}
+                        disabled={saving[offer.id] || !priceChanged}
+                      >
+                        {saving[offer.id] ? <RefreshCw size={12} /> :
+                         saved[offer.id] ? <Check size={12} /> :
+                         <Save size={12} />}
+                        {saved[offer.id] ? 'Saved!' : saving[offer.id] ? 'Saving...' : 'Update'}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * IWTR (what you receive) is calculated by Kinguin based on your product's commission rate
+        * Kinguin allows 3 free price changes per offer per day. IWTR preview uses your product's actual commission rate.
       </div>
     </div>
   );
