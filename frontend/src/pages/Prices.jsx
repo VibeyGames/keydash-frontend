@@ -12,10 +12,12 @@ export default function Prices() {
 
   useEffect(() => {
     getOffers().then(res => {
-      const data = res.data?.results || [];
+      const data = Array.isArray(res.data) ? res.data : [];
       setOffers(data);
       const initial = {};
-      data.forEach(o => { initial[o.id] = o.price?.amount ? (o.price.amount / 100).toFixed(2) : ''; });
+      data.forEach(o => {
+        initial[o.id] = o.priceIWTR?.amount ? (o.priceIWTR.amount / 100).toFixed(2) : o.price?.amount ? (o.price.amount / 100).toFixed(2) : '';
+      });
       setPrices(initial);
     }).catch(() => setError('Failed to load listings')).finally(() => setLoading(false));
   }, []);
@@ -52,35 +54,28 @@ export default function Prices() {
         ) : (
           <table>
             <thead>
-              <tr><th>Product</th><th>Current price</th><th>New price (€)</th><th>Stock</th><th></th></tr>
+              <tr><th>Product</th><th>Current price (IWTR)</th><th>New price (€)</th><th>Stock</th><th></th></tr>
             </thead>
             <tbody>
               {offers.map(offer => (
                 <tr key={offer.id}>
-                  <td style={{ fontWeight: 500 }}>{offer.name || offer.kpcProductId}</td>
+                  <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
                   <td style={{ color: 'var(--text2)' }}>
-                    €{offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : '—'}
+                    €{offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : '—'}
                   </td>
                   <td>
-                    <input
-                      type="number" step="0.01" min="0.01"
+                    <input type="number" step="0.01" min="0.01"
                       value={prices[offer.id] || ''}
                       onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
-                      style={{ width: 100 }}
-                    />
+                      style={{ width: 100 }} />
+                  </td>
+                  <td style={{ color: offer.availableStock === 0 ? 'var(--danger)' : offer.availableStock <= 5 ? 'var(--warning)' : 'var(--text2)' }}>
+                    {offer.availableStock ?? '—'} keys
                   </td>
                   <td>
-                    <span style={{ color: offer.qty === 0 ? 'var(--danger)' : offer.qty <= 5 ? 'var(--warning)' : 'var(--text2)' }}>
-                      {offer.qty ?? '—'} keys
-                    </span>
-                  </td>
-                  <td>
-                    <button
-                      className={`btn ${saved[offer.id] ? 'btn-secondary' : 'btn-primary'}`}
+                    <button className={`btn ${saved[offer.id] ? 'btn-secondary' : 'btn-primary'}`}
                       style={{ padding: '6px 12px', fontSize: 12 }}
-                      onClick={() => handleSave(offer.id)}
-                      disabled={saving[offer.id]}
-                    >
+                      onClick={() => handleSave(offer.id)} disabled={saving[offer.id]}>
                       {saving[offer.id] ? <RefreshCw size={12} /> : <Save size={12} />}
                       {saved[offer.id] ? 'Saved!' : saving[offer.id] ? 'Saving...' : 'Update'}
                     </button>
