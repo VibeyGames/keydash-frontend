@@ -24,10 +24,10 @@ API.interceptors.response.use(
 export const login = (username, password) => API.post('/api/auth/login', { username, password });
 export const getMe = () => API.get('/api/auth/me');
 export const getStats = () => API.get('/api/kinguin/stats');
-export const getOffers = (page = 1) => API.get(`/api/kinguin/offers?page=${page}&limit=20`);
+export const getOffers = () => API.get('/api/kinguin/offers?page=1&limit=100');
 export const updatePrice = (offerId, price) => API.patch(`/api/kinguin/offers/${offerId}/price`, { price });
-export const addKeys = (offerId, keys) => API.post(`/api/kinguin/offers/${offerId}/keys`, { keys });
+export const addKeys = (offerId, key) => API.post(`/api/kinguin/offers/${offerId}/keys`, { keys: [key] });
 export const createOffer = (data) => API.post('/api/kinguin/offers', data);
-export const getOrders = (page = 1) => API.get(`/api/orders?page=${page}&limit=20`);
+export const getOrders = () => API.get('/api/orders?page=1&limit=20');
 
 export default API;
