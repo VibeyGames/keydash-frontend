@@ -2,13 +2,6 @@ import { useState, useEffect } from 'react';
 import { getOffers, updatePrice } from '../services/api.js';
 import { Save, RefreshCw } from 'lucide-react';
 
-function calculateIWTR(buyerPrice) {
-  if (!buyerPrice || isNaN(buyerPrice)) return null;
-  const p = parseFloat(buyerPrice);
-  const iwtr = (p - 0.15) / 1.1;
-  return iwtr.toFixed(2);
-}
-
 export default function Prices() {
   const [offers, setOffers] = useState([]);
   const [prices, setPrices] = useState({});
@@ -17,8 +10,11 @@ export default function Prices() {
   const [saved, setSaved] = useState({});
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    getOffers().then(res => {
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    try {
+      const res = await getOffers();
       const data = Array.isArray(res.data) ? res.data : [];
       setOffers(data);
       const initial = {};
@@ -26,18 +22,24 @@ export default function Prices() {
         initial[o.id] = o.price?.amount ? (o.price.amount / 100).toFixed(2) : '';
       });
       setPrices(initial);
-    }).catch(() => setError('Failed to load listings')).finally(() => setLoading(false));
-  }, []);
+    } catch {
+      setError('Failed to load listings');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleSave(offerId) {
-    const buyerPrice = parseFloat(prices[offerId]);
-    if (!buyerPrice || buyerPrice <= 0) return alert('Enter a valid price');
-    const iwtr = parseFloat(calculateIWTR(buyerPrice));
+    const price = parseFloat(prices[offerId]);
+    if (!price || price <= 0) return alert('Enter a valid price');
     setSaving(s => ({ ...s, [offerId]: true }));
     try {
-      await updatePrice(offerId, iwtr);
+      await updatePrice(offerId, price);
       setSaved(s => ({ ...s, [offerId]: true }));
-      setTimeout(() => setSaved(s => ({ ...s, [offerId]: false })), 2000);
+      setTimeout(() => {
+        setSaved(s => ({ ...s, [offerId]: false }));
+        load();
+      }, 1500);
     } catch {
       alert('Failed to update price.');
     } finally {
@@ -52,7 +54,7 @@ export default function Prices() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Type the buyer price — see what you'll receive instantly
+          Set the buyer price → click Update → Kinguin applies it instantly
         </p>
       </div>
 
@@ -70,62 +72,58 @@ export default function Prices() {
             <thead>
               <tr>
                 <th>Product</th>
-                <th>Buyer pays (€)</th>
-                <th>You receive (IWTR)</th>
+                <th>Current buyer price</th>
+                <th>Current IWTR</th>
+                <th>New buyer price (€)</th>
                 <th>Stock</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {offers.map(offer => {
-                const iwtr = calculateIWTR(prices[offer.id]);
-                return (
-                  <tr key={offer.id}>
-                    <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
-                    <td>
-                      <input
-                        type="number" step="0.01" min="0.01"
-                        value={prices[offer.id] || ''}
-                        onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
-                        style={{ width: 100 }}
-                      />
-                    </td>
-                    <td>
-                      <span style={{
-                        color: iwtr ? 'var(--success)' : 'var(--text3)',
-                        fontWeight: iwtr ? 600 : 400,
-                        fontSize: 14
-                      }}>
-                        {iwtr ? `€${iwtr}` : '—'}
-                      </span>
-                    </td>
-                    <td style={{
-                      color: offer.availableStock === 0 ? 'var(--danger)' :
-                        offer.availableStock <= 5 ? 'var(--warning)' : 'var(--text2)'
-                    }}>
-                      {offer.availableStock ?? '—'} keys
-                    </td>
-                    <td>
-                      <button
-                        className={`btn ${saved[offer.id] ? 'btn-secondary' : 'btn-primary'}`}
-                        style={{ padding: '6px 12px', fontSize: 12 }}
-                        onClick={() => handleSave(offer.id)}
-                        disabled={saving[offer.id]}
-                      >
-                        {saving[offer.id] ? <RefreshCw size={12} /> : <Save size={12} />}
-                        {saved[offer.id] ? 'Saved!' : saving[offer.id] ? 'Saving...' : 'Update'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+              {offers.map(offer => (
+                <tr key={offer.id}>
+                  <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
+                  <td style={{ color: 'var(--text2)' }}>
+                    €{offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : '—'}
+                  </td>
+                  <td style={{ color: 'var(--success)', fontWeight: 500 }}>
+                    €{offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : '—'}
+                  </td>
+                  <td>
+                    <input
+                      type="number" step="0.01" min="0.01"
+                      value={prices[offer.id] || ''}
+                      onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
+                      style={{ width: 100 }}
+                      placeholder="New price"
+                    />
+                  </td>
+                  <td style={{
+                    color: offer.availableStock === 0 ? 'var(--danger)' :
+                      offer.availableStock <= 5 ? 'var(--warning)' : 'var(--text2)'
+                  }}>
+                    {offer.availableStock ?? '—'} keys
+                  </td>
+                  <td>
+                    <button
+                      className={`btn ${saved[offer.id] ? 'btn-secondary' : 'btn-primary'}`}
+                      style={{ padding: '6px 12px', fontSize: 12 }}
+                      onClick={() => handleSave(offer.id)}
+                      disabled={saving[offer.id]}
+                    >
+                      {saving[offer.id] ? <RefreshCw size={12} /> : <Save size={12} />}
+                      {saved[offer.id] ? 'Updated!' : saving[offer.id] ? 'Saving...' : 'Update'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
       </div>
 
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * IWTR = (buyer price − €0.15) ÷ 1.10 — Kinguin commission estimate
+        * IWTR (what you receive) is calculated by Kinguin based on your product's commission rate
       </div>
     </div>
   );
