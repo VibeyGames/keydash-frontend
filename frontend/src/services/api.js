@@ -26,6 +26,7 @@ export const getMe = () => API.get('/api/auth/me');
 export const getStats = () => API.get('/api/kinguin/stats');
 export const getOffers = () => API.get('/api/kinguin/offers?page=1&limit=100');
 export const updatePrice = (offerId, price) => API.patch(`/api/kinguin/offers/${offerId}/price`, { price });
+export const calculatePrice = (offerId, productId, price) => API.get(`/api/kinguin/offers/${offerId}/calculate?price=${price}&productId=${productId}`);
 export const addKeys = (offerId, key) => API.post(`/api/kinguin/offers/${offerId}/keys`, { keys: [key] });
 export const createOffer = (data) => API.post('/api/kinguin/offers', data);
 export const getOrders = () => API.get('/api/orders?page=1&limit=20');
