@@ -41,6 +41,10 @@ export default function Offers() {
     }
   }
 
+  function toSlug(name) {
+    return (name || '').toLowerCase().replace(/ > /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  }
+
   if (loading) return <div style={{ padding: 32, color: 'var(--text2)' }}>Loading listings...</div>;
 
   const rows = [];
@@ -63,7 +67,7 @@ export default function Offers() {
             <Key size={12} /> Add keys
           </button>
           
-            href={`https://www.kinguin.net/search?q=${encodeURIComponent((offer.name || offer.productId).replace(/ > /g, ' '))}`}
+            href={`https://www.kinguin.net/category/${offer.productId}/${toSlug(offer.name)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary"
