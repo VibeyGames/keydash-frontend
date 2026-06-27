@@ -2,15 +2,6 @@ import { useState, useEffect } from 'react';
 import { getOffers, updatePrice } from '../services/api.js';
 import { Save, RefreshCw, Check } from 'lucide-react';
 
-function calcIWTR(buyerPriceEuros, commissionRule) {
-  if (!buyerPriceEuros || isNaN(buyerPriceEuros) || !commissionRule) return null;
-  const p = parseFloat(buyerPriceEuros) * 100;
-  const fixed = commissionRule.fixedAmount || 0;
-  const percent = commissionRule.percentValue || 0;
-  const iwtr = (p - fixed) / (1 + percent / 100);
-  return (iwtr / 100).toFixed(2);
-}
-
 export default function Prices() {
   const [offers, setOffers] = useState([]);
   const [prices, setPrices] = useState({});
@@ -61,7 +52,7 @@ export default function Prices() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Type a buyer price → IWTR updates instantly using your real commission rate
+          Update prices — IWTR refreshes automatically after each save
         </p>
       </div>
 
@@ -80,9 +71,9 @@ export default function Prices() {
               <tr>
                 <th>Product</th>
                 <th>Commission</th>
-                <th>Current price</th>
+                <th>Current buyer price</th>
+                <th>Current IWTR</th>
                 <th>New buyer price (€)</th>
-                <th>You'll receive (IWTR)</th>
                 <th>Stock</th>
                 <th></th>
               </tr>
@@ -90,18 +81,27 @@ export default function Prices() {
             <tbody>
               {offers.map(offer => {
                 const currentPrice = offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : null;
+                const currentIWTR = offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : null;
                 const newPrice = parseFloat(prices[offer.id]);
                 const priceChanged = currentPrice && newPrice && newPrice !== parseFloat(currentPrice);
-                const liveIWTR = calcIWTR(prices[offer.id], offer.commissionRule);
                 const commission = offer.commissionRule;
 
                 return (
                   <tr key={offer.id}>
                     <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
                     <td style={{ color: 'var(--text2)', fontSize: 12 }}>
-                      {commission ? `${commission.fixedAmount > 0 ? `€${(commission.fixedAmount/100).toFixed(2)} + ` : ''}${commission.percentValue}%` : '—'}
+                      {commission
+                        ? `${commission.fixedAmount > 0 ? `€${(commission.fixedAmount / 100).toFixed(2)} + ` : ''}${commission.percentValue}%`
+                        : '—'}
                     </td>
-                    <td style={{ color: 'var(--text2)' }}>€{currentPrice || '—'}</td>
+                    <td style={{ color: 'var(--text2)' }}>
+                      €{currentPrice || '—'}
+                    </td>
+                    <td>
+                      <span style={{ color: 'var(--success)', fontWeight: 600 }}>
+                        €{currentIWTR || '—'}
+                      </span>
+                    </td>
                     <td>
                       <input
                         type="number" step="0.01" min="0.01"
@@ -112,15 +112,6 @@ export default function Prices() {
                           borderColor: priceChanged ? 'var(--warning)' : undefined
                         }}
                       />
-                    </td>
-                    <td>
-                      <span style={{
-                        color: liveIWTR ? 'var(--success)' : 'var(--text3)',
-                        fontWeight: liveIWTR ? 600 : 400,
-                        fontSize: 15
-                      }}>
-                        {liveIWTR ? `€${liveIWTR}` : '—'}
-                      </span>
                     </td>
                     <td style={{
                       color: offer.availableStock === 0 ? 'var(--danger)' :
@@ -150,7 +141,7 @@ export default function Prices() {
       </div>
 
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * IWTR calculated using each product's real Kinguin commission rule — no estimation
+        * IWTR shown is Kinguin's actual value — updates after each price change
       </div>
     </div>
   );
