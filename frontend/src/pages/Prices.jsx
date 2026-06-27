@@ -29,6 +29,14 @@ export default function Prices() {
     }
   }
 
+  function getPreviewIWTR(offer, newBuyerPrice) {
+    const price = offer.price?.amount;
+    const iwtr = offer.priceIWTR?.amount;
+    if (!price || !iwtr || !newBuyerPrice || isNaN(newBuyerPrice)) return null;
+    const ratio = iwtr / price;
+    return (parseFloat(newBuyerPrice) * ratio).toFixed(2);
+  }
+
   async function handleSave(offerId) {
     const price = parseFloat(prices[offerId]);
     if (!price || price <= 0) return alert('Enter a valid price');
@@ -52,7 +60,7 @@ export default function Prices() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Update prices — IWTR refreshes automatically after each save
+          Type a new price → see estimated IWTR instantly → click Update when ready
         </p>
       </div>
 
@@ -71,9 +79,9 @@ export default function Prices() {
               <tr>
                 <th>Product</th>
                 <th>Commission</th>
-                <th>Current buyer price</th>
-                <th>Current IWTR</th>
+                <th>Current price</th>
                 <th>New buyer price (€)</th>
+                <th>Est. IWTR</th>
                 <th>Stock</th>
                 <th></th>
               </tr>
@@ -81,27 +89,19 @@ export default function Prices() {
             <tbody>
               {offers.map(offer => {
                 const currentPrice = offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : null;
-                const currentIWTR = offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : null;
                 const newPrice = parseFloat(prices[offer.id]);
                 const priceChanged = currentPrice && newPrice && newPrice !== parseFloat(currentPrice);
+                const previewIWTR = getPreviewIWTR(offer, prices[offer.id]);
                 const commission = offer.commissionRule;
+                const currentIWTR = offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : null;
 
                 return (
                   <tr key={offer.id}>
                     <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
                     <td style={{ color: 'var(--text2)', fontSize: 12 }}>
-                      {commission
-                        ? `${commission.fixedAmount > 0 ? `€${(commission.fixedAmount / 100).toFixed(2)} + ` : ''}${commission.percentValue}%`
-                        : '—'}
+                      {commission ? `${commission.percentValue}%` : '—'}
                     </td>
-                    <td style={{ color: 'var(--text2)' }}>
-                      €{currentPrice || '—'}
-                    </td>
-                    <td>
-                      <span style={{ color: 'var(--success)', fontWeight: 600 }}>
-                        €{currentIWTR || '—'}
-                      </span>
-                    </td>
+                    <td style={{ color: 'var(--text2)' }}>€{currentPrice || '—'}</td>
                     <td>
                       <input
                         type="number" step="0.01" min="0.01"
@@ -112,6 +112,20 @@ export default function Prices() {
                           borderColor: priceChanged ? 'var(--warning)' : undefined
                         }}
                       />
+                    </td>
+                    <td>
+                      <span style={{
+                        color: priceChanged ? 'var(--accent)' : 'var(--success)',
+                        fontWeight: 600,
+                        fontSize: 15
+                      }}>
+                        {priceChanged && previewIWTR
+                          ? `~€${previewIWTR}`
+                          : currentIWTR ? `€${currentIWTR}` : '—'}
+                      </span>
+                      {priceChanged && (
+                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>estimated</div>
+                      )}
                     </td>
                     <td style={{
                       color: offer.availableStock === 0 ? 'var(--danger)' :
@@ -141,7 +155,7 @@ export default function Prices() {
       </div>
 
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * IWTR shown is Kinguin's actual value — updates after each price change
+        * Est. IWTR is an approximation based on your current commission ratio. Exact value confirmed after saving.
       </div>
     </div>
   );
