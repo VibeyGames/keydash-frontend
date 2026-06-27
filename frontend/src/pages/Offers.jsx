@@ -65,8 +65,8 @@ export default function Offers() {
             </thead>
             <tbody>
               {offers.map(offer => (
-                <>
-                  <tr key={offer.id}>
+                <React.Fragment key={offer.id}>
+                  <tr>
                     <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
                     <td>€{offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : '—'}</td>
                     <td style={{ color: offer.availableStock === 0 ? 'var(--danger)' : offer.availableStock <= 5 ? 'var(--warning)' : 'var(--success)' }}>
@@ -94,7 +94,7 @@ export default function Offers() {
                     </td>
                   </tr>
                   {addingKeys === offer.id && (
-                    <tr key={`${offer.id}-keys`}>
+                    <tr>
                       <td colSpan={5} style={{ background: 'var(--surface2)', padding: 16 }}>
                         <p style={{ color: 'var(--text2)', fontSize: 12, marginBottom: 8 }}>Paste your keys — one per line</p>
                         <textarea value={keyInput} onChange={e => setKeyInput(e.target.value)}
@@ -109,7 +109,7 @@ export default function Offers() {
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
