@@ -24,7 +24,7 @@ export default function Offers() {
   }
 
   async function handleAddKeys(offerId) {
-    const keys = keyInput.split('\n').map(k => k.trim()).filter(Boolean);
+    const keys = keyInput.split('\n').filter(k => k.trim());
     if (!keys.length) return;
     setSaving(true);
     try {
@@ -35,22 +35,26 @@ export default function Offers() {
       setKeyInput('');
       load();
     } catch {
-      alert('Failed to add keys. Please try again.');
+      alert('Failed to add keys');
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) return <div style={{ padding: 32, color: 'var(--text2)' }}>Loading listings...</div>;
+  if (loading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200 }}>
+      <div className="spinner" />
+    </div>
+  );
 
   return (
-    <div style={{ padding: 28 }}>
+    <div>
       <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>My listings</h1>
-        <p style={{ color: 'var(--text2)', marginTop: 2 }}>{offers.length} listings on Kinguin</p>
+        <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>My Listings</h1>
+        <p style={{ color: 'var(--text2)' }}>Manage your Kinguin product listings and stock</p>
       </div>
 
-      {error && <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius)', marginBottom: 20 }}>{error}</div>}
+      {error && <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius)', marginBottom: 16 }}>{error}</div>}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {offers.length === 0 ? (
@@ -61,15 +65,27 @@ export default function Offers() {
         ) : (
           <table>
             <thead>
-              <tr><th>Product</th><th>Price</th><th>Stock</th><th>Status</th><th>Actions</th></tr>
+              <tr>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {offers.map(offer => (
                 <>
                   <tr key={offer.id}>
                     <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
-                    <td>€{offer.priceIWTR?.amount ? (offer.priceIWTR.amount / 100).toFixed(2) : offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : '—'}</td>
-                    <td style={{ color: offer.availableStock === 0 ? 'var(--danger)' : offer.availableStock <= 5 ? 'var(--warning)' : 'var(--success)' }}>
+                    <td>
+                      {offer.priceIWTR?.amount
+                        ? `€${(offer.priceIWTR.amount / 100).toFixed(2)}`
+                        : offer.price?.amount
+                        ? `€${(offer.price.amount / 100).toFixed(2)}`
+                        : '—'}
+                    </td>
+                    <td style={{ color: offer.availableStock === 0 ? 'var(--danger)' : offer.availableStock <= 5 ? 'var(--warning)' : 'inherit' }}>
                       {offer.availableStock ?? '—'}
                     </td>
                     <td>
@@ -78,11 +94,14 @@ export default function Offers() {
                       </span>
                     </td>
                     <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <button className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}
-                        onClick={() => setAddingKeys(addingKeys === offer.id ? null : offer.id)}>
+                      <button
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 10px', fontSize: 12 }}
+                        onClick={() => setAddingKeys(addingKeys === offer.id ? null : offer.id)}
+                      >
                         <Key size={12} /> Add keys
                       </button>
-                      
+                      <a
                         href={`https://www.kinguin.net/category/${offer.productId}`}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -97,14 +116,20 @@ export default function Offers() {
                     <tr key={`${offer.id}-keys`}>
                       <td colSpan={5} style={{ background: 'var(--surface2)', padding: 16 }}>
                         <p style={{ color: 'var(--text2)', fontSize: 12, marginBottom: 8 }}>Paste your keys — one per line</p>
-                        <textarea value={keyInput} onChange={e => setKeyInput(e.target.value)}
-                          rows={5} style={{ width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
-                          placeholder={"XXXXX-XXXXX-XXXXX\nXXXXX-XXXXX-XXXXX"} />
+                        <textarea
+                          value={keyInput}
+                          onChange={e => setKeyInput(e.target.value)}
+                          rows={5}
+                          style={{ width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+                          placeholder="XXXXX-XXXXX-XXXXX"
+                        />
                         <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                           <button className="btn btn-primary" onClick={() => handleAddKeys(offer.id)} disabled={saving}>
                             {saving ? 'Adding...' : `Add ${keyInput.split('\n').filter(k => k.trim()).length} keys`}
                           </button>
-                          <button className="btn btn-secondary" onClick={() => { setAddingKeys(null); setKeyInput(''); }}>Cancel</button>
+                          <button className="btn btn-secondary" onClick={() => { setAddingKeys(null); setKeyInput(''); }}>
+                            Cancel
+                          </button>
                         </div>
                       </td>
                     </tr>
