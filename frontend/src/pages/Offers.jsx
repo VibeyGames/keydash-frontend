@@ -2,6 +2,14 @@ import { useState, useEffect } from 'react';
 import { getOffers, addKeys } from '../services/api.js';
 import { Key, Package, ExternalLink } from 'lucide-react';
 
+function getKinguinSearchUrl(name) {
+  // Strip breadcrumb-style prefix (e.g. "Netflix Top-Up > Global > 30 Days Basic" -> "Netflix 30 Days Basic")
+  const parts = name.split('>').map(s => s.trim());
+  // Use last 2 meaningful parts joined, or just the full name for short ones
+  const query = parts.length >= 3 ? parts[0] + ' ' + parts[parts.length - 1] : name;
+  return 'https://www.kinguin.net/search?q=' + encodeURIComponent(query);
+}
+
 export default function Offers() {
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +110,7 @@ export default function Offers() {
                         <Key size={12} /> Add keys
                       </button>
                       <a
-                        href={`https://www.kinguin.net/category/${offer.productId}`}
+                        href={getKinguinSearchUrl(offer.name || '')}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="btn btn-secondary"
