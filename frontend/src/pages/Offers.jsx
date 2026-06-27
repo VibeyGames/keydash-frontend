@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getOffers, addKeys } from '../services/api.js';
-import { Key, Package } from 'lucide-react';
+import { Key, Package, ExternalLink } from 'lucide-react';
 
 export default function Offers() {
   const [offers, setOffers] = useState([]);
@@ -77,11 +77,20 @@ export default function Offers() {
                         {offer.status || 'unknown'}
                       </span>
                     </td>
-                    <td>
+                    <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       <button className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}
                         onClick={() => setAddingKeys(addingKeys === offer.id ? null : offer.id)}>
                         <Key size={12} /> Add keys
                       </button>
+                      
+                        href={`https://www.kinguin.net/category/${offer.productId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary"
+                        style={{ padding: '5px 10px', fontSize: 12, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                      >
+                        <ExternalLink size={12} /> View on Kinguin
+                      </a>
                     </td>
                   </tr>
                   {addingKeys === offer.id && (
