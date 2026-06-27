@@ -1,17 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
-import { getOffers, updatePrice, calculatePrice } from '../services/api.js';
-import { Save, RefreshCw, Check, Loader } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { getOffers, updatePrice } from '../services/api.js';
+import { Save, RefreshCw, Check } from 'lucide-react';
+
+function calcIWTR(buyerPriceEuros, commissionRule) {
+  if (!buyerPriceEuros || isNaN(buyerPriceEuros) || !commissionRule) return null;
+  const p = parseFloat(buyerPriceEuros) * 100;
+  const fixed = commissionRule.fixedAmount || 0;
+  const percent = commissionRule.percentValue || 0;
+  const iwtr = (p - fixed) / (1 + percent / 100);
+  return (iwtr / 100).toFixed(2);
+}
 
 export default function Prices() {
   const [offers, setOffers] = useState([]);
   const [prices, setPrices] = useState({});
-  const [iwtr, setIwtr] = useState({});
   const [loading, setLoading] = useState(true);
-  const [calculating, setCalculating] = useState({});
   const [saving, setSaving] = useState({});
   const [saved, setSaved] = useState({});
   const [error, setError] = useState('');
-  const timers = useRef({});
 
   useEffect(() => { load(); }, []);
 
@@ -21,44 +27,15 @@ export default function Prices() {
       const data = Array.isArray(res.data) ? res.data : [];
       setOffers(data);
       const initial = {};
-      const iwtrInit = {};
       data.forEach(o => {
         initial[o.id] = o.price?.amount ? (o.price.amount / 100).toFixed(2) : '';
-        iwtrInit[o.id] = o.priceIWTR?.amount ? (o.priceIWTR.amount / 100).toFixed(2) : null;
       });
       setPrices(initial);
-      setIwtr(iwtrInit);
     } catch {
       setError('Failed to load listings');
     } finally {
       setLoading(false);
     }
-  }
-
-  function handlePriceChange(offer, value) {
-    setPrices(p => ({ ...p, [offer.id]: value }));
-
-    if (timers.current[offer.id]) clearTimeout(timers.current[offer.id]);
-
-    if (!value || isNaN(value) || parseFloat(value) <= 0) {
-      setIwtr(i => ({ ...i, [offer.id]: null }));
-      return;
-    }
-
-    setCalculating(c => ({ ...c, [offer.id]: true }));
-
-    timers.current[offer.id] = setTimeout(async () => {
-      try {
-        const productId = offer.kpcProductId || offer.productId;
-        const res = await calculatePrice(offer.id, productId, parseFloat(value));
-        const iwtrAmount = res.data?.priceIWTR;
-        setIwtr(i => ({ ...i, [offer.id]: iwtrAmount ? (iwtrAmount / 100).toFixed(2) : null }));
-      } catch {
-        setIwtr(i => ({ ...i, [offer.id]: null }));
-      } finally {
-        setCalculating(c => ({ ...c, [offer.id]: false }));
-      }
-    }, 600);
   }
 
   async function handleSave(offerId) {
@@ -81,12 +58,10 @@ export default function Prices() {
 
   return (
     <div style={{ padding: 28 }}>
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Price control</h1>
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>
-          Type a buyer price → real IWTR from Kinguin appears → click Update when ready
+          Type a buyer price → IWTR updates instantly using your real commission rate
         </p>
       </div>
 
@@ -104,6 +79,7 @@ export default function Prices() {
             <thead>
               <tr>
                 <th>Product</th>
+                <th>Commission</th>
                 <th>Current price</th>
                 <th>New buyer price (€)</th>
                 <th>You'll receive (IWTR)</th>
@@ -116,16 +92,21 @@ export default function Prices() {
                 const currentPrice = offer.price?.amount ? (offer.price.amount / 100).toFixed(2) : null;
                 const newPrice = parseFloat(prices[offer.id]);
                 const priceChanged = currentPrice && newPrice && newPrice !== parseFloat(currentPrice);
+                const liveIWTR = calcIWTR(prices[offer.id], offer.commissionRule);
+                const commission = offer.commissionRule;
 
                 return (
                   <tr key={offer.id}>
                     <td style={{ fontWeight: 500 }}>{offer.name || offer.productId}</td>
+                    <td style={{ color: 'var(--text2)', fontSize: 12 }}>
+                      {commission ? `${commission.fixedAmount > 0 ? `€${(commission.fixedAmount/100).toFixed(2)} + ` : ''}${commission.percentValue}%` : '—'}
+                    </td>
                     <td style={{ color: 'var(--text2)' }}>€{currentPrice || '—'}</td>
                     <td>
                       <input
                         type="number" step="0.01" min="0.01"
                         value={prices[offer.id] || ''}
-                        onChange={e => handlePriceChange(offer, e.target.value)}
+                        onChange={e => setPrices(p => ({ ...p, [offer.id]: e.target.value }))}
                         style={{
                           width: 100,
                           borderColor: priceChanged ? 'var(--warning)' : undefined
@@ -133,17 +114,13 @@ export default function Prices() {
                       />
                     </td>
                     <td>
-                      {calculating[offer.id] ? (
-                        <Loader size={14} style={{ color: 'var(--accent)', animation: 'spin 1s linear infinite' }} />
-                      ) : (
-                        <span style={{
-                          color: iwtr[offer.id] ? 'var(--success)' : 'var(--text3)',
-                          fontWeight: iwtr[offer.id] ? 600 : 400,
-                          fontSize: 15
-                        }}>
-                          {iwtr[offer.id] ? `€${iwtr[offer.id]}` : '—'}
-                        </span>
-                      )}
+                      <span style={{
+                        color: liveIWTR ? 'var(--success)' : 'var(--text3)',
+                        fontWeight: liveIWTR ? 600 : 400,
+                        fontSize: 15
+                      }}>
+                        {liveIWTR ? `€${liveIWTR}` : '—'}
+                      </span>
                     </td>
                     <td style={{
                       color: offer.availableStock === 0 ? 'var(--danger)' :
@@ -173,7 +150,7 @@ export default function Prices() {
       </div>
 
       <div style={{ marginTop: 16, fontSize: 12, color: 'var(--text3)' }}>
-        * IWTR fetched directly from Kinguin — 100% accurate per product commission
+        * IWTR calculated using each product's real Kinguin commission rule — no estimation
       </div>
     </div>
   );
