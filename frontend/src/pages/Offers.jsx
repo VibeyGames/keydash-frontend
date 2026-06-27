@@ -41,8 +41,15 @@ export default function Offers() {
     }
   }
 
-  function toSlug(name) {
-    return (name || '').toLowerCase().replace(/ > /g, '-').replace(/[^a-z0-9]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  function getKinguinSearchUrl(name) {
+    if (!name) return 'https://www.kinguin.net';
+    const cleaned = name
+      .split('>')
+      .map(p => p.trim())
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return `https://www.kinguin.net/search?q=${encodeURIComponent(cleaned)}`;
   }
 
   if (loading) return <div style={{ padding: 32, color: 'var(--text2)' }}>Loading listings...</div>;
@@ -62,12 +69,15 @@ export default function Offers() {
           </span>
         </td>
         <td style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-secondary" style={{ padding: '5px 10px', fontSize: 12 }}
-            onClick={() => setAddingKeys(addingKeys === offer.id ? null : offer.id)}>
+          <button
+            className="btn btn-secondary"
+            style={{ padding: '5px 10px', fontSize: 12 }}
+            onClick={() => setAddingKeys(addingKeys === offer.id ? null : offer.id)}
+          >
             <Key size={12} /> Add keys
           </button>
           
-            href={`https://www.kinguin.net/category/${offer.productId}/${toSlug(offer.name)}`}
+            href={getKinguinSearchUrl(offer.name)}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary"
@@ -83,9 +93,13 @@ export default function Offers() {
         <tr key={`${offer.id}-keys`}>
           <td colSpan={5} style={{ background: 'var(--surface2)', padding: 16 }}>
             <p style={{ color: 'var(--text2)', fontSize: 12, marginBottom: 8 }}>Paste your keys — one per line</p>
-            <textarea value={keyInput} onChange={e => setKeyInput(e.target.value)}
-              rows={5} style={{ width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
-              placeholder={"XXXXX-XXXXX-XXXXX\nXXXXX-XXXXX-XXXXX"} />
+            <textarea
+              value={keyInput}
+              onChange={e => setKeyInput(e.target.value)}
+              rows={5}
+              style={{ width: '100%', resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+              placeholder={"XXXXX-XXXXX-XXXXX\nXXXXX-XXXXX-XXXXX"}
+            />
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <button className="btn btn-primary" onClick={() => handleAddKeys(offer.id)} disabled={saving}>
                 {saving ? 'Adding...' : `Add ${keyInput.split('\n').filter(k => k.trim()).length} keys`}
@@ -105,7 +119,11 @@ export default function Offers() {
         <p style={{ color: 'var(--text2)', marginTop: 2 }}>{offers.length} listings on Kinguin</p>
       </div>
 
-      {error && <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius)', marginBottom: 20 }}>{error}</div>}
+      {error && (
+        <div style={{ background: 'var(--danger-bg)', color: 'var(--danger)', padding: '12px 16px', borderRadius: 'var(--radius)', marginBottom: 20 }}>
+          {error}
+        </div>
+      )}
 
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         {offers.length === 0 ? (
